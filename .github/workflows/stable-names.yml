@@ -1,0 +1,39 @@
+# При публикации релиза добавляет к нему копии установщиков без версии в имени:
+#   Pachaq-arm64.dmg, Pachaq-intel.dmg, Pachaq-Setup.exe
+# Благодаря им работают постоянные ссылки вида
+#   https://github.com/ehroz1/pachaq-releases/releases/latest/download/Pachaq-Setup.exe
+# Файлы с версией (Pachaq_<версия>_...) не меняются: их использует автообновление через latest.json.
+# Вручную для готового релиза: Actions → Stable names → Run workflow → тег (например v0.1.2).
+name: Stable names
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Тег релиза, например v0.1.2
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  alias:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add unversioned copies
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir assets && cd assets
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" \
+            -p '*_aarch64.dmg' -p '*_x64.dmg' -p '*_x64-setup.exe'
+          mv ./*_aarch64.dmg Pachaq-arm64.dmg
+          mv ./*_x64.dmg Pachaq-intel.dmg
+          mv ./*_x64-setup.exe Pachaq-Setup.exe
+          ls -l
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber \
+            Pachaq-arm64.dmg Pachaq-intel.dmg Pachaq-Setup.exe
